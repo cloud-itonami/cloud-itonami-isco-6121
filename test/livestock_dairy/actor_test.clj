@@ -1,0 +1,41 @@
+(ns livestock-dairy.actor-test
+  (:require [clojure.test :refer [deftest is testing]]
+            [livestock-dairy.actor :as actor]
+            [livestock-dairy.store :as store]))
+
+(defn- fresh-store []
+  (let [st (store/mem-store)]
+    (store/register-herd! st {:herd-id "herd-1" :name "North Pasture Herd"})
+    st))
+
+(deftest commits-a-clean-low-risk-request
+  (let [st (fresh-store)
+        graph (actor/build-graph {:store st})
+        request {:herd-id "herd-1" :op :feed :stake :low}
+        result (actor/run-request! graph request {} "thread-1")]
+    (is (= :done (:status result)))
+    (is (some? (get-in result [:state :record])))
+    (is (= 1 (count (store/records-of st "herd-1"))))))
+
+(deftest holds-on-unregistered-herd-without-committing
+  (let [st (fresh-store)
+        graph (actor/build-graph {:store st})
+        request {:herd-id "no-such-herd" :op :feed :stake :low}
+        result (actor/run-request! graph request {} "thread-2")]
+    (is (= :done (:status result)))
+    (is (nil? (get-in result [:state :record])))
+    (is (empty? (store/records-of st "no-such-herd")))
+    (is (= :hold (:disposition (:state result))))))
+
+(deftest interrupts-then-commits-on-human-approval
+  (let [st (fresh-store)
+        graph (actor/build-graph {:store st})
+        ;; veterinary medication administration always escalates (governor invariant)
+        request {:herd-id "herd-1" :op :administer-veterinary-medication :stake :high}
+        interrupted (actor/run-request! graph request {} "thread-3")]
+    (is (= :interrupted (:status interrupted)))
+    (is (empty? (store/records-of st "herd-1")))
+    (let [resumed (actor/approve! graph "thread-3")]
+      (is (= :done (:status resumed)))
+      (is (some? (get-in resumed [:state :record])))
+      (is (= 1 (count (store/records-of st "herd-1")))))))
