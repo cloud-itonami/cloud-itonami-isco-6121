@@ -1,0 +1,41 @@
+;; What this vertical's robot physically does, declared for
+;; kotoba.robotics.process (kotoba-lang/robotics). `kbb -M:physics` runs it.
+;;
+;; README "Robotics premise": a herd-monitoring robot performs health sensing,
+;; feed dispensing and milking-support tasks for livestock and dairy producers
+;; (ISCO 6121). Its physical work here: pushing a loaded feed cart down the
+;; barn feed alley, checking the friction head of the milk line it supports,
+;; and emptying the bulk milk tank to the collection tanker.
+;;
+;; Every number without a cited source is marked `estimate` in its :basis.
+;; Replacing an estimate with a sourced value is this bot's growth work.
+{:physics/schema "itonami.physical-ai.spec.v1"
+ :repo "cloud-itonami/cloud-itonami-isco-6121"
+ :cases
+ [{:id :feed-cart-down-feed-alley
+   :kind :transport
+   :procedure "feed-dispensing robot drives a loaded feed cart 80 m down the barn feed alley"
+   :params {:mass-kg 400.0 :distance-m 80.0 :v-max-mps 0.6 :a-max-mps2 0.2
+            :brake-decel-mps2 0.4 :drive-force-n 600.0 :crr 0.03
+            :cog-height-m 0.70 :support-half-length-m 0.50}
+   :sweep {:param :payload-kg :values [100.0 200.0 400.0 600.0 800.0]}
+   :quantity :cycle-time-s
+   :limit {:max 180.0 :basis "estimate: one alley pass within 3 minutes keeps feed delivery ahead of the cows returning from milking"}
+   :boundary {:lo 50.0 :hi 1600.0}}
+  {:id :milk-line-friction
+   :kind :pipe-flow
+   :procedure "milking support: friction head along a 40 m, 50 mm stainless milk line at the parlour's milk flow"
+   :params {:diameter-m 0.050 :length-m 40.0 :roughness-m 1.5e-6
+            :density-kg-m3 1030.0 :viscosity-pa-s 2.0e-3 :pump-efficiency 0.5 :elevation-m 0.0}
+   :sweep {:param :q-m3s :values [0.0002 0.0005 0.001 0.0015 0.002]}
+   :quantity :head-m
+   :limit {:max 1.0 :basis "estimate: the milk pump / receiver should lose no more than ~1 m of head in the line to keep flow gentle on milk fat"}
+   :boundary {:lo 0.0001 :hi 0.006}}
+  {:id :bulk-tank-to-tanker
+   :kind :tank-drain
+   :procedure "emptying the bulk milk tank by gravity through its outlet valve into the collection tanker hose"
+   :params {:tank-area-m2 2.5 :h0-m 1.6 :h-target-m 0.05 :cd 0.62}
+   :sweep {:param :orifice-area-m2 :values [0.0012 0.002 0.0033 0.005 0.008]}
+   :quantity :time-to-target-s
+   :limit {:max 1200.0 :basis "estimate: the milk tanker's pickup slot allows about 20 minutes of transfer per farm"}
+   :boundary {:lo 0.0005 :hi 0.02}}]}
