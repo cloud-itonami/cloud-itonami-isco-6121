@@ -1,5 +1,5 @@
 (ns livestock-dairy.actor-test
-  (:require [clojure.test :refer [deftest is testing]]
+  (:require [kotoba.test :refer [deftest is testing]]
             [livestock-dairy.actor :as actor]
             [livestock-dairy.store :as store]))
 
